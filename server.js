@@ -114,8 +114,11 @@ app.get('/api/admin/download', adminAuth, (req, res) => {
   res.download(DB_FILE, 'confessions.json');
 });
 
+if (!ADMIN_PW) {
+  console.error('ERROR: ADMIN_PASSWORD env var is not set. Admin login will not work.');
+}
+
 app.listen(PORT, () => {
   console.log(`Running on http://localhost:${PORT}`);
   console.log(`Admin panel: http://localhost:${PORT}/admin`);
-  console.log(`Admin password: ${ADMIN_PW}`);
 });
