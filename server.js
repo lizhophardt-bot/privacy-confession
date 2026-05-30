@@ -36,6 +36,11 @@ function adminAuth(req, res, next) {
 }
 
 // Public routes
+app.get('/api/whoami', (req, res) => {
+  const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket.remoteAddress;
+  res.json({ ip });
+});
+
 app.get('/wall', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'wall.html'));
 });
