@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin // Privacy Confession</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Courier New', Courier, monospace;
+      background: #000;
+      color: #00ff41;
+      min-height: 100vh;
+    }
+
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(
+        to bottom,
+        transparent 0px,
+        transparent 3px,
+        rgba(0,0,0,0.18) 3px,
+        rgba(0,0,0,0.18) 4px
+      );
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    /* ── LOGIN ── */
+    #login-overlay {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 2rem;
+    }
+
+    #login-card { max-width: 400px; width: 100%; }
+
+    .label {
+      font-size: 0.7rem;
+      color: #00b330;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      margin-bottom: 1.5rem;
+    }
+    .label::before { content: '// '; }
+
+    input[type="password"] {
+      width: 100%;
+      background: #000;
+      border: 1px solid #007a28;
+      color: #00ff41;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 0.95rem;
+      padding: 0.75rem;
+      outline: none;
+      margin-bottom: 1rem;
+    }
+    input[type="password"]:focus { border-color: #00ff41; }
+    input[type="password"]::placeholder { color: #007a28; }
+
+    #login-error {
+      font-size: 0.75rem;
+      color: #ff4141;
+      margin-top: 0.75rem;
+      display: none;
+    }
+    #login-error::before { content: '! '; }
+
+    /* ── BUTTONS ── */
+    button {
+      width: 100%;
+      padding: 0.75rem;
+      background: transparent;
+      color: #00ff41;
+      border: 1px solid #00ff41;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 0.9rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      cursor: pointer;
+    }
+    button:hover { background: #00ff41; color: #000; }
+    button:disabled { opacity: 0.3; cursor: not-allowed; }
+    button:disabled:hover { background: transparent; color: #00ff41; }
+
+    button.sm {
+      width: auto;
+      padding: 0.3rem 0.7rem;
+      font-size: 0.7rem;
+    }
+    button.danger { border-color: #ff4141; color: #ff4141; }
+    button.danger:hover { background: #ff4141; color: #000; }
+    button.dim { border-color: #005c1f; color: #005c1f; }
+    button.dim:hover { background: #005c1f; color: #000; }
+
+    /* ── ADMIN PANEL ── */
+    #admin-panel { display: none; }
+
+    header {
+      position: sticky;
+      top: 0;
+      padding: 1.1rem 2rem;
+      border-bottom: 1px solid #003b14;
+      background: #000;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 5;
+    }
+    header h1 {
+      font-size: 0.85rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+    }
+    header h1::before { content: '> '; color: #005c1f; }
+
+    .header-actions { display: flex; gap: 0.6rem; align-items: center; }
+
+    #status-msg {
+      font-size: 0.7rem;
+      color: #007a28;
+      letter-spacing: 0.1em;
+      min-width: 140px;
+      text-align: right;
+    }
+
+    /* ── SPLIT LAYOUT ── */
+    .split {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .col {
+      padding: 1.5rem;
+      border-right: 1px solid #003b14;
+    }
+    .col:last-child { border-right: none; }
+
+    .col-title {
+      font-size: 0.7rem;
+      color: #00b330;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      margin-bottom: 1.2rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 1px solid #003b14;
+    }
+    .col-title::before { content: '// '; }
+    .col-title .count { color: #007a28; margin-left: 0.4rem; }
+
+    .confession-list { display: flex; flex-direction: column; gap: 1rem; }
+
+    .confession-card {
+      border: 1px solid #003b14;
+      padding: 0.9rem;
+    }
+    .confession-card.approved { border-color: #007a28; }
+
+    .confession-text {
+      font-size: 0.85rem;
+      line-height: 1.65;
+      color: #00ff41;
+      margin-bottom: 0.5rem;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .confession-meta {
+      font-size: 0.65rem;
+      color: #005c1f;
+      letter-spacing: 0.08em;
+      margin-bottom: 0.7rem;
+    }
+
+    .card-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+
+    .empty-state {
+      font-size: 0.8rem;
+      color: #003b14;
+      letter-spacing: 0.1em;
+    }
+    .empty-state::before { content: '// '; }
+
+    footer {
+      padding: 0.9rem 2rem;
+      border-top: 1px solid #003b14;
+      background: #000;
+      font-size: 0.7rem;
+      color: #003b14;
+      letter-spacing: 0.1em;
+      display: flex;
+      justify-content: space-between;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- LOGIN -->
+  <div id="login-overlay">
+    <div id="login-card">
+      <div class="label">admin access required</div>
+      <input type="password" id="pw-input" placeholder="enter admin password" autocomplete="current-password">
+      <button id="login-btn">[ authenticate ]</button>
+      <div id="login-error">invalid credentials</div>
+    </div>
+  </div>
+
+  <!-- ADMIN PANEL -->
+  <div id="admin-panel">
+    <header>
+      <h1>Admin // Confession Moderation</h1>
+      <div class="header-actions">
+        <span id="status-msg"></span>
+        <button class="sm" id="download-btn">[ download db ]</button>
+        <button class="sm dim" id="logout-btn">[ logout ]</button>
+      </div>
+    </header>
+
+    <div class="split">
+      <div class="col">
+        <div class="col-title">pending <span class="count" id="pending-count"></span></div>
+        <div class="confession-list" id="pending-list"></div>
+      </div>
+      <div class="col">
+        <div class="col-title">approved <span class="count" id="approved-count"></span></div>
+        <div class="confession-list" id="approved-list"></div>
+      </div>
+    </div>
+
+    <footer>
+      <span>admin_panel.exe</span>
+      <span id="footer-clock"></span>
+    </footer>
+  </div>
+
+  <script>
+    const loginOverlay = document.getElementById('login-overlay');
+    const adminPanel   = document.getElementById('admin-panel');
+
+    function pad(n) { return String(n).padStart(2, '0'); }
+
+    function fmt(ts) {
+      const d = new Date(ts * 1000);
+      return [d.getFullYear(), pad(d.getMonth()+1), pad(d.getDate())].join('-') + ' ' +
+             [pad(d.getHours()), pad(d.getMinutes()), pad(d.getSeconds())].join(':');
+    }
+
+    (function tickClock() {
+      const d = new Date();
+      document.getElementById('footer-clock').textContent =
+        [d.getFullYear(), pad(d.getMonth()+1), pad(d.getDate())].join('-') + ' ' +
+        [pad(d.getHours()), pad(d.getMinutes()), pad(d.getSeconds())].join(':');
+      setTimeout(tickClock, 1000);
+    })();
+
+    function setStatus(msg) {
+      const el = document.getElementById('status-msg');
+      el.textContent = msg;
+      setTimeout(() => { el.textContent = ''; }, 2500);
+    }
+
+    // ── LOGIN ──
+    const pwInput  = document.getElementById('pw-input');
+    const loginBtn = document.getElementById('login-btn');
+    const loginErr = document.getElementById('login-error');
+
+    pwInput.addEventListener('keydown', e => { if (e.key === 'Enter') loginBtn.click(); });
+
+    loginBtn.addEventListener('click', async () => {
+      loginBtn.disabled = true;
+      loginErr.style.display = 'none';
+      try {
+        const res = await fetch('/api/admin/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password: pwInput.value })
+        });
+        if (res.ok) {
+          showPanel();
+        } else {
+          loginErr.style.display = 'block';
+          loginBtn.disabled = false;
+        }
+      } catch {
+        loginErr.style.display = 'block';
+        loginBtn.disabled = false;
+      }
+    });
+
+    // ── LOGOUT ──
+    document.getElementById('logout-btn').addEventListener('click', async () => {
+      await fetch('/api/admin/logout', { method: 'POST' });
+      adminPanel.style.display   = 'none';
+      loginOverlay.style.display = 'flex';
+      pwInput.value = '';
+      loginBtn.disabled = false;
+    });
+
+    // ── DOWNLOAD ──
+    document.getElementById('download-btn').addEventListener('click', () => {
+      window.location.href = '/api/admin/download';
+    });
+
+    // ── PANEL ──
+    function showPanel() {
+      loginOverlay.style.display = 'none';
+      adminPanel.style.display   = 'block';
+      loadConfessions();
+    }
+
+    async function apiCall(method, url) {
+      const res = await fetch(url, { method });
+      if (res.status === 401) {
+        adminPanel.style.display   = 'none';
+        loginOverlay.style.display = 'flex';
+        throw new Error('session expired');
+      }
+      return res;
+    }
+
+    function makeCard(c, isPending) {
+      const card = document.createElement('div');
+      card.className = 'confession-card' + (isPending ? '' : ' approved');
+
+      const text = document.createElement('p');
+      text.className = 'confession-text';
+      text.textContent = c.text;
+
+      const meta = document.createElement('p');
+      meta.className = 'confession-meta';
+      meta.textContent = '#' + c.id + '  ·  ' + fmt(c.submitted_at);
+
+      const actions = document.createElement('div');
+      actions.className = 'card-actions';
+
+      if (isPending) {
+        const approve = document.createElement('button');
+        approve.className = 'sm';
+        approve.textContent = '[ approve ]';
+        approve.addEventListener('click', () => doAction('approve', c.id));
+
+        const del = document.createElement('button');
+        del.className = 'sm danger';
+        del.textContent = '[ delete ]';
+        del.addEventListener('click', () => doAction('delete', c.id));
+
+        actions.append(approve, del);
+      } else {
+        const unapprove = document.createElement('button');
+        unapprove.className = 'sm dim';
+        unapprove.textContent = '[ unapprove ]';
+        unapprove.addEventListener('click', () => doAction('unapprove', c.id));
+
+        const del = document.createElement('button');
+        del.className = 'sm danger';
+        del.textContent = '[ delete ]';
+        del.addEventListener('click', () => doAction('delete', c.id));
+
+        actions.append(unapprove, del);
+      }
+
+      card.append(text, meta, actions);
+      return card;
+    }
+
+    async function loadConfessions() {
+      try {
+        const res  = await apiCall('GET', '/api/admin/confessions');
+        const rows = await res.json();
+
+        const pending  = rows.filter(r => !r.approved);
+        const approved = rows.filter(r =>  r.approved);
+
+        document.getElementById('pending-count').textContent  = '(' + pending.length  + ')';
+        document.getElementById('approved-count').textContent = '(' + approved.length + ')';
+
+        const pList = document.getElementById('pending-list');
+        const aList = document.getElementById('approved-list');
+        pList.innerHTML = '';
+        aList.innerHTML = '';
+
+        if (pending.length === 0) {
+          pList.innerHTML = '<p class="empty-state">no pending confessions</p>';
+        } else {
+          pending.forEach(c => pList.appendChild(makeCard(c, true)));
+        }
+
+        if (approved.length === 0) {
+          aList.innerHTML = '<p class="empty-state">no approved confessions</p>';
+        } else {
+          approved.forEach(c => aList.appendChild(makeCard(c, false)));
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    async function doAction(action, id) {
+      try {
+        if (action === 'delete') {
+          await apiCall('DELETE', '/api/admin/confession/' + id);
+          setStatus('deleted #' + id);
+        } else {
+          await apiCall('POST', '/api/admin/' + action + '/' + id);
+          setStatus(action + 'd #' + id);
+        }
+        loadConfessions();
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    // Check if already authenticated on page load
+    fetch('/api/admin/confessions').then(res => {
+      if (res.ok) showPanel();
+    }).catch(() => {});
+
+    setInterval(loadConfessions, 15000);
+  </script>
+</body>
+</html>

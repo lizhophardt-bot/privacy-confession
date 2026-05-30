@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Privacy Confession</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Courier New', Courier, monospace;
+      background: #000;
+      color: #00ff41;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+      overflow: hidden;
+    }
+
+    /* scanlines */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(
+        to bottom,
+        transparent 0px,
+        transparent 3px,
+        rgba(0,0,0,0.18) 3px,
+        rgba(0,0,0,0.18) 4px
+      );
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    header {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      padding: 1.2rem 2rem;
+      border-bottom: 1px solid #003b14;
+      background: #000;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    header h1 {
+      font-size: 0.85rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+    }
+    header h1::before { content: '> '; color: #005c1f; }
+    #clock {
+      font-size: 0.75rem;
+      color: #003b14;
+      letter-spacing: 0.1em;
+    }
+
+    .card {
+      max-width: 520px;
+      width: 100%;
+    }
+
+    .label {
+      font-size: 0.7rem;
+      color: #00b330;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      margin-bottom: 1.5rem;
+    }
+    .label::before { content: '// '; }
+
+    p.sub {
+      font-size: 0.85rem;
+      color: #00b330;
+      margin-bottom: 1.8rem;
+      line-height: 1.6;
+    }
+    p.sub::before { content: '> '; }
+
+    textarea {
+      width: 100%;
+      height: 160px;
+      background: #000;
+      border: 1px solid #007a28;
+      color: #00ff41;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 0.95rem;
+      padding: 0.75rem;
+      resize: vertical;
+      outline: none;
+      line-height: 1.7;
+    }
+    textarea::placeholder { color: #007a28; }
+    textarea:focus { border-color: #00ff41; }
+
+    .counter {
+      text-align: right;
+      font-size: 0.7rem;
+      color: #007a28;
+      letter-spacing: 0.1em;
+      margin: 0.4rem 0 1.4rem;
+    }
+
+    button {
+      width: 100%;
+      padding: 0.75rem;
+      background: transparent;
+      color: #00ff41;
+      border: 1px solid #00ff41;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 0.9rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      cursor: pointer;
+    }
+    button:hover { background: #00ff41; color: #000; }
+    button:disabled { opacity: 0.3; cursor: not-allowed; }
+    button:disabled:hover { background: transparent; color: #00ff41; }
+
+    /* confirmation */
+    #confirm-view { display: none; }
+
+    @keyframes glitch {
+      0%   { clip-path: inset(0 0 100% 0); transform: translateX(0);    opacity: 0; }
+      15%  { clip-path: inset(0 0 70% 0);  transform: translateX(-3px); opacity: 1; }
+      35%  { clip-path: inset(0 0 40% 0);  transform: translateX(2px);  opacity: 1; }
+      60%  { clip-path: inset(0 0 10% 0);  transform: translateX(0);    opacity: 1; }
+      100% { clip-path: inset(0 0 0% 0);   transform: translateX(0);    opacity: 1; }
+    }
+    .reveal { animation: glitch 0.5s steps(1) forwards; }
+
+    .confirm-label {
+      font-size: 0.7rem;
+      color: #00b330;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      margin-bottom: 1.5rem;
+    }
+    .confirm-label::before { content: '// '; }
+
+    .confirm-msg {
+      font-size: 1rem;
+      color: #00b330;
+      line-height: 2;
+    }
+
+    .confirm-cta {
+      margin-top: 1.5rem;
+      font-size: 1rem;
+      color: #00ff41;
+      font-weight: bold;
+      letter-spacing: 0.05em;
+    }
+    .confirm-cta::before { content: '> '; color: #005c1f; }
+
+    footer {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      padding: 0.9rem 2rem;
+      border-top: 1px solid #003b14;
+      background: #000;
+      font-size: 0.7rem;
+      color: #003b14;
+      letter-spacing: 0.1em;
+      display: flex;
+      justify-content: space-between;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Make your Privacy Confession</h1>
+    <span id="clock"></span>
+  </header>
+
+  <div class="card">
+
+    <div id="form-view">
+      <div class="label">anonymous transmission</div>
+      <p class="sub">Input your privacy sin below.<br>We won't ask who you are. We just want to know what you did.</p>
+      <textarea id="text" maxlength="1000" placeholder=""></textarea>
+      <div class="counter"><span id="count">0</span> / 1000 chars</div>
+      <button id="submit-btn">[ confess ]</button>
+    </div>
+
+    <div id="confirm-view">
+      <div class="confirm-label">transmission received</div>
+      <p class="confirm-msg">
+        You typed this in private.<br>
+        But feeling private isn't being private.
+      </p>
+      <p class="confirm-cta">That's why Gnosis VPN exists.</p>
+    </div>
+
+  </div>
+
+  <footer>
+    <span>confession_input.exe</span>
+    <span id="footer-clock"></span>
+  </footer>
+
+  <script>
+    function pad(n) { return String(n).padStart(2, '0'); }
+    function tick() {
+      const d = new Date();
+      const t = [d.getFullYear(), pad(d.getMonth()+1), pad(d.getDate())].join('-') + ' ' +
+                [pad(d.getHours()), pad(d.getMinutes()), pad(d.getSeconds())].join(':');
+      document.getElementById('footer-clock').textContent = t;
+    }
+    setInterval(tick, 1000);
+    tick();
+
+    const textarea = document.getElementById('text');
+    const counter  = document.getElementById('count');
+    const btn      = document.getElementById('submit-btn');
+
+    const placeholders = [
+      'I confess that I...',
+      'My worst privacy habit is...',
+      'I know I shouldn\'t, but I still...',
+      'I once leaked my own privacy by...',
+      'The most suspicious thing on my phone is...',
+      'I pretend to care about privacy, but...',
+      'My Web3 privacy confession is...',
+      'I gave away my data for...',
+      'I clicked "accept all cookies" because...',
+      'I reused a password for...',
+    ];
+    let phIndex = 0;
+    function rotatePlaceholder() {
+      textarea.placeholder = placeholders[phIndex];
+      phIndex = (phIndex + 1) % placeholders.length;
+    }
+    rotatePlaceholder();
+    setInterval(rotatePlaceholder, 3000);
+
+    textarea.addEventListener('input', () => {
+      counter.textContent = textarea.value.length;
+    });
+
+    btn.addEventListener('click', async () => {
+      const text = textarea.value.trim();
+      if (!text) return;
+      btn.disabled = true;
+      try {
+        const res = await fetch('/api/confession', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text })
+        });
+        if (res.ok) {
+          const formView    = document.getElementById('form-view');
+          const confirmView = document.getElementById('confirm-view');
+          formView.style.display = 'none';
+          confirmView.style.display = 'block';
+          confirmView.classList.add('reveal');
+        } else {
+          alert('Transmission failed. Try again.');
+          btn.disabled = false;
+        }
+      } catch {
+        alert('Network error. Try again.');
+        btn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

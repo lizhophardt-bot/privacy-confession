@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Private… Until It Isn't</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Courier New', Courier, monospace;
+      background: #000;
+      color: #00ff41;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+      overflow: hidden;
+    }
+
+    /* scanlines */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(
+        to bottom,
+        transparent 0px,
+        transparent 3px,
+        rgba(0,0,0,0.18) 3px,
+        rgba(0,0,0,0.18) 4px
+      );
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    header {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      padding: 1.2rem 2rem;
+      border-bottom: 1px solid #003b14;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #000;
+    }
+    header h1 {
+      font-size: 0.85rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: #00ff41;
+    }
+    header h1::before { content: '> '; color: #005c1f; }
+
+    #counter {
+      font-size: 0.75rem;
+      color: #005c1f;
+      letter-spacing: 0.1em;
+    }
+
+    #stage {
+      max-width: 620px;
+      width: 100%;
+      text-align: left;
+    }
+
+    .label {
+      font-size: 0.7rem;
+      color: #005c1f;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      margin-bottom: 1.5rem;
+    }
+    .label::before { content: '// '; }
+
+    #confession-text {
+      font-size: 1.15rem;
+      line-height: 1.9;
+      color: #00ff41;
+      min-height: 3rem;
+      white-space: pre-wrap;
+    }
+    #confession-text::after {
+      content: '█';
+      display: inline-block;
+      animation: blink 1s step-end infinite;
+      color: #00ff41;
+      margin-left: 2px;
+    }
+
+    #empty {
+      font-size: 0.9rem;
+      color: #005c1f;
+    }
+    #empty::before { content: '// '; }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0; }
+    }
+
+    @keyframes glitch {
+      0%   { clip-path: inset(0 0 100% 0); transform: translateX(0);    opacity: 0; }
+      10%  { clip-path: inset(0 0 80% 0);  transform: translateX(-3px); opacity: 1; }
+      20%  { clip-path: inset(0 0 60% 0);  transform: translateX(2px);  opacity: 1; }
+      35%  { clip-path: inset(0 0 40% 0);  transform: translateX(-1px); opacity: 1; }
+      50%  { clip-path: inset(0 0 20% 0);  transform: translateX(0);    opacity: 1; }
+      65%  { clip-path: inset(0 0 0% 0);   transform: translateX(0);    opacity: 1; }
+      100% { clip-path: inset(0 0 0% 0);   transform: translateX(0);    opacity: 1; }
+    }
+    @keyframes fadeout {
+      from { opacity: 1; }
+      to   { opacity: 0; }
+    }
+
+    .reveal  { animation: glitch 0.5s steps(1) forwards; }
+    .dismiss { animation: fadeout 0.3s ease forwards; }
+
+    #progress {
+      margin-top: 3rem;
+      width: 100%;
+      height: 1px;
+      background: #001a08;
+    }
+    #progress-bar {
+      height: 100%;
+      background: #00ff41;
+      width: 0%;
+    }
+
+    footer {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      padding: 0.9rem 2rem;
+      border-top: 1px solid #003b14;
+      background: #000;
+      font-size: 0.7rem;
+      color: #003b14;
+      letter-spacing: 0.1em;
+      display: flex;
+      justify-content: space-between;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Private… Until It Isn't</h1>
+    <span id="counter"></span>
+  </header>
+
+  <div id="stage">
+    <div class="label" id="label">intercepted transmission</div>
+    <p id="confession-text"></p>
+    <p id="empty" style="display:none">no signals intercepted yet</p>
+    <div id="progress"><div id="progress-bar"></div></div>
+  </div>
+
+  <footer>
+    <span>signal_leak.exe</span>
+    <span id="timestamp"></span>
+  </footer>
+
+  <script>
+    let confessions = [];
+    let index = 0;
+
+    const textEl      = document.getElementById('confession-text');
+    const emptyEl     = document.getElementById('empty');
+    const counterEl   = document.getElementById('counter');
+    const progressBar = document.getElementById('progress-bar');
+    const timestampEl = document.getElementById('timestamp');
+
+    function pad(n) { return String(n).padStart(2, '0'); }
+    function updateClock() {
+      const d = new Date();
+      timestampEl.textContent =
+        [d.getFullYear(), pad(d.getMonth()+1), pad(d.getDate())].join('-') + ' ' +
+        [pad(d.getHours()), pad(d.getMinutes()), pad(d.getSeconds())].join(':');
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    function showCurrent() {
+      if (!confessions.length) {
+        textEl.style.display  = 'none';
+        emptyEl.style.display = 'block';
+        counterEl.textContent = '';
+        return;
+      }
+
+      emptyEl.style.display = 'none';
+      textEl.style.display  = 'block';
+
+      counterEl.textContent = 'record ' + (index + 1) + ' of ' + confessions.length;
+
+      textEl.classList.remove('reveal', 'dismiss');
+      void textEl.offsetWidth;
+      textEl.textContent = confessions[index].text;
+      textEl.classList.add('reveal');
+
+      startProgress();
+    }
+
+    function next() {
+      if (!confessions.length) return;
+      textEl.classList.remove('reveal');
+      textEl.classList.add('dismiss');
+      setTimeout(() => {
+        index = (index + 1) % confessions.length;
+        showCurrent();
+      }, 300);
+    }
+
+    function startProgress() {
+      progressBar.style.transition = 'none';
+      progressBar.style.width = '0%';
+      void progressBar.offsetWidth;
+      progressBar.style.transition = 'width 10s linear';
+      progressBar.style.width = '100%';
+    }
+
+    async function fetchConfessions() {
+      try {
+        const res  = await fetch('/api/confessions');
+        const data = await res.json();
+        const known = new Set(confessions.map(c => c.id));
+        const added = data.filter(c => !known.has(c.id));
+        if (added.length) confessions.push(...added);
+      } catch (e) {
+        console.error('Fetch error:', e);
+      }
+    }
+
+    async function init() {
+      await fetchConfessions();
+      showCurrent();
+      setInterval(next, 10000);
+      setInterval(fetchConfessions, 10000);
+    }
+
+    init();
+  </script>
+</body>
+</html>
