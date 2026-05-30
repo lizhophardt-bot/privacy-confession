@@ -36,6 +36,20 @@ function adminAuth(req, res, next) {
 }
 
 // Public routes
+app.post('/api/email', (req, res) => {
+  const email = (req.body.email || '').trim().toLowerCase();
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return res.status(400).json({ error: 'Invalid email' });
+  }
+  const data = load();
+  if (!data.emails) data.emails = [];
+  if (!data.emails.some(e => e.email === email)) {
+    data.emails.push({ email, submitted_at: Math.floor(Date.now() / 1000) });
+    save(data);
+  }
+  res.json({ ok: true });
+});
+
 app.get('/api/whoami', (req, res) => {
   const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket.remoteAddress;
   res.json({ ip });
@@ -124,6 +138,14 @@ app.delete('/api/admin/confession/:id', adminAuth, (req, res) => {
 
 app.get('/api/admin/download', adminAuth, (req, res) => {
   res.download(DB_FILE, 'confessions.json');
+});
+
+app.get('/api/admin/emails', adminAuth, (req, res) => {
+  const emails = (load().emails || []);
+  const csv = ['email,submitted_at', ...emails.map(e => `${e.email},${e.submitted_at}`)].join('\n');
+  res.setHeader('Content-Type', 'text/csv');
+  res.setHeader('Content-Disposition', 'attachment; filename="emails.csv"');
+  res.send(csv);
 });
 
 if (!ADMIN_PW) {

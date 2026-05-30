@@ -188,6 +188,55 @@
     }
     .confirm-cta::before { content: '> '; color: #005c1f; }
 
+    #email-signup {
+      margin-top: 2rem;
+      opacity: 0;
+      transition: opacity 0.6s ease;
+    }
+    .email-label {
+      font-size: 0.7rem;
+      color: #00b330;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      margin-bottom: 0.8rem;
+    }
+    .email-label::before { content: '// '; }
+    .email-sub {
+      font-size: 0.8rem;
+      color: #005c1f;
+      letter-spacing: 0.05em;
+      margin-bottom: 1rem;
+      line-height: 1.6;
+    }
+    .email-row {
+      display: flex;
+      gap: 0.6rem;
+    }
+    .email-row input[type="email"] {
+      flex: 1;
+      background: #000;
+      border: 1px solid #007a28;
+      color: #00ff41;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 0.85rem;
+      padding: 0.6rem 0.75rem;
+      outline: none;
+    }
+    .email-row input[type="email"]:focus { border-color: #00ff41; }
+    .email-row input[type="email"]::placeholder { color: #007a28; }
+    .email-row button {
+      width: auto;
+      padding: 0.6rem 1rem;
+      font-size: 0.8rem;
+    }
+    #email-msg {
+      margin-top: 0.75rem;
+      font-size: 0.75rem;
+      letter-spacing: 0.08em;
+    }
+    #email-msg.ok  { color: #00b330; }
+    #email-msg.err { color: #ff4141; }
+
     footer {
       position: fixed;
       bottom: 0; left: 0; right: 0;
@@ -223,6 +272,16 @@
       <p class="confirm-intro">You typed this in private.<br>But you left a trail.</p>
       <div class="data-table" id="data-table"></div>
       <p class="confirm-cta" id="confirm-cta">That's why Gnosis VPN exists.</p>
+
+      <div id="email-signup">
+        <div class="email-label">get a free voucher</div>
+        <p class="email-sub">Try Gnosis VPN beta on your own device — enter your email and we'll send you a code.</p>
+        <div class="email-row">
+          <input type="email" id="email-input" placeholder="your@email.com" autocomplete="email">
+          <button id="email-btn">[ send ]</button>
+        </div>
+        <p id="email-msg"></p>
+      </div>
     </div>
 
   </div>
@@ -353,9 +412,13 @@
         table.appendChild(row);
       });
 
+      const delay = rows.length * 140 + 400;
       setTimeout(() => {
         document.getElementById('confirm-cta').style.opacity = '1';
-      }, rows.length * 140 + 400);
+      }, delay);
+      setTimeout(() => {
+        document.getElementById('email-signup').style.opacity = '1';
+      }, delay + 700);
     }
 
     btn.addEventListener('click', async () => {
@@ -384,6 +447,42 @@
         btn.disabled = false;
       }
     });
+
+    // Email signup
+    const emailInput = document.getElementById('email-input');
+    const emailBtn   = document.getElementById('email-btn');
+    const emailMsg   = document.getElementById('email-msg');
+
+    emailBtn.addEventListener('click', async () => {
+      const email = emailInput.value.trim();
+      if (!email) return;
+      emailBtn.disabled = true;
+      emailMsg.className = '';
+      emailMsg.textContent = '';
+      try {
+        const res = await fetch('/api/email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email })
+        });
+        if (res.ok) {
+          emailMsg.className = 'ok';
+          emailMsg.textContent = '> voucher request received. check your inbox soon.';
+          emailInput.disabled = true;
+          emailBtn.disabled   = true;
+        } else {
+          emailMsg.className = 'err';
+          emailMsg.textContent = '! invalid email address.';
+          emailBtn.disabled = false;
+        }
+      } catch {
+        emailMsg.className = 'err';
+        emailMsg.textContent = '! network error. try again.';
+        emailBtn.disabled = false;
+      }
+    });
+
+    emailInput.addEventListener('keydown', e => { if (e.key === 'Enter') emailBtn.click(); });
   </script>
 </body>
 </html>
