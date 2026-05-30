@@ -10,6 +10,7 @@ const DB_FILE  = path.join(__dirname, 'confessions.json');
 const ADMIN_PW = process.env.ADMIN_PASSWORD;
 
 let adminToken = null;
+let lastConfessionAt = 0;
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
@@ -40,12 +41,17 @@ app.get('/wall', (req, res) => {
 });
 
 app.post('/api/confession', (req, res) => {
+  const now = Date.now();
+  if (now - lastConfessionAt < 5000) {
+    return res.status(429).json({ error: 'Too many confessions. Please wait a moment.' });
+  }
   const text = (req.body.text || '').trim();
   if (!text || text.length > 1000) {
     return res.status(400).json({ error: 'Invalid confession' });
   }
+  lastConfessionAt = now;
   const data = load();
-  data.rows.push({ id: data.nextId++, text, submitted_at: Math.floor(Date.now() / 1000), approved: false });
+  data.rows.push({ id: data.nextId++, text, submitted_at: Math.floor(now / 1000), approved: false });
   save(data);
   res.json({ ok: true });
 });
