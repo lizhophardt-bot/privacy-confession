@@ -285,6 +285,13 @@
       </div>
     </div>
 
+    <div id="email-confirm-view" style="display:none;">
+      <div class="confirm-label">secret code requested</div>
+      <p class="confirm-intro">Check your inbox soon.</p>
+      <p class="confirm-cta" style="opacity:1; margin-bottom:1rem;">We won't use your email address for anything else.</p>
+      <p id="email-confirm-countdown" style="font-size:0.7rem; color:#005c1f; letter-spacing:0.1em;"></p>
+    </div>
+
   </div>
 
   <footer>
@@ -467,11 +474,17 @@
           body: JSON.stringify({ email })
         });
         if (res.ok) {
-          emailMsg.className = 'ok';
-          emailMsg.textContent = '> secret code request received. check your inbox soon.';
-          emailInput.disabled = true;
-          emailBtn.disabled   = true;
-          setTimeout(resetToForm, 2500);
+          document.getElementById('confirm-view').style.display = 'none';
+          const emailConfirm = document.getElementById('email-confirm-view');
+          emailConfirm.style.display = 'block';
+          const countdown = document.getElementById('email-confirm-countdown');
+          let secs = 15;
+          countdown.textContent = `> returning in ${secs}s`;
+          const timer = setInterval(() => {
+            secs--;
+            countdown.textContent = `> returning in ${secs}s`;
+            if (secs <= 0) { clearInterval(timer); resetToForm(); }
+          }, 1000);
         } else {
           emailMsg.className = 'err';
           emailMsg.textContent = '! invalid email address.';
@@ -499,6 +512,7 @@
       document.getElementById('email-signup').style.display = '';
       document.getElementById('confirm-cta').style.opacity = '0';
       document.getElementById('confirm-view').style.display = 'none';
+      document.getElementById('email-confirm-view').style.display = 'none';
       document.getElementById('form-view').style.display = 'block';
     }
 
