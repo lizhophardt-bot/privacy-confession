@@ -29,8 +29,17 @@ async function initDb() {
   `);
 }
 
+// Run once on module load — works for both local and Vercel serverless
+const dbReady = initDb();
+
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
+
+// All routes wait for DB to be ready before proceeding
+app.use(async (req, res, next) => {
+  try { await dbReady; next(); }
+  catch (e) { console.error('DB init error:', e); res.status(503).json({ error: 'Database unavailable' }); }
+});
 
 // ── Admin auth ──────────────────────────────────────────────────────────────
 // Token is derived from the password so any serverless instance can validate it
@@ -184,7 +193,7 @@ if (!ADMIN_PW) {
 
 // Local dev: listen directly. Vercel imports this file and uses module.exports.
 if (require.main === module) {
-  initDb()
+  dbReady
     .then(() => app.listen(PORT, () => {
       console.log(`Running on http://localhost:${PORT}`);
       console.log(`Admin panel: http://localhost:${PORT}/admin`);
