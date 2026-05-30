@@ -1,48 +1,59 @@
 # Privacy Confessions
 
-> **Status:** Event prototype — not production-hardened. Keep it simple.
+> **Status:** Event prototype — not production-hardened.
 
-An anonymous confession wall for DappCon 2026. Submissions are held for manual admin approval before appearing publicly on the wall.
+Anonymous confession wall for DappCon 2026. Submissions are held for manual admin approval before appearing on the wall.
 
 ## Pages
 
 - `/` — submit a confession (up to 1000 characters)
-- `/wall` — public display that polls for new approved confessions every 10 seconds
+- `/wall` — public display, polls for approved confessions every 10 seconds
 - `/admin` — moderation panel (password protected)
+
+## Stack
+
+- **Backend:** Node.js + Express
+- **Database:** PostgreSQL via [Neon](https://neon.tech)
+- **Hosting:** Vercel
+- **Frontend:** Vanilla HTML/CSS/JS — no build step
+
+## Environment variables
+
+| Variable | Description |
+|---|---|
+| `DATABASE_URL` | Neon PostgreSQL connection string (use the pooled URL) |
+| `ADMIN_PASSWORD` | Admin panel password |
 
 ## Running locally
 
 ```bash
 npm install
+```
+
+Create a `.env` file (never committed):
+```
+DATABASE_URL=postgresql://...
+ADMIN_PASSWORD=your-password
+```
+
+```bash
 npm start
 ```
 
-Server starts on `http://localhost:3000`.
+The database tables are created automatically on first run.
+
+## Deploying to Vercel
+
+1. Push to GitHub
+2. Import the repo in Vercel
+3. Add `DATABASE_URL` and `ADMIN_PASSWORD` in **Settings → Environment Variables**
+4. Deploy
 
 ## Admin panel
 
-Visit `/admin` and enter the admin password to moderate submissions.
+Visit `/admin` and enter the admin password.
 
-- **Pending** — new submissions awaiting review; approve or delete
+- **Pending** — approve or delete incoming confessions
 - **Approved** — live on the wall; can be unapproved or deleted
-- **Download DB** — downloads `confessions.json` as a backup
-
-Set the password via env var: `ADMIN_PASSWORD=yourpassword npm start`
-
-## Configuration
-
-| Env var | Default | Description |
-|---|---|---|
-| `PORT` | `3000` | HTTP port |
-| `ADMIN_PASSWORD` | *(required)* | Admin panel password |
-
-## Stack
-
-- **Backend:** Node.js + Express
-- **Database:** JSON flat file (`confessions.json`) — no setup needed
-- **Frontend:** Vanilla HTML/CSS/JS — no build step, no framework
-
-## What's intentionally missing (prototype scope)
-
-- No rate limiting
-- No HTTPS — add a reverse proxy (nginx/Caddy) if deploying publicly
+- **Download DB** — full JSON backup of all confessions and emails
+- **Download emails** — CSV of voucher signups

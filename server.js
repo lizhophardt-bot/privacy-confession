@@ -1,27 +1,42 @@
 require('dotenv').config();
-const express = require('express');
-const fs      = require('fs');
-const path    = require('path');
-const crypto  = require('crypto');
+const express  = require('express');
+const path     = require('path');
+const crypto   = require('crypto');
+const { Pool } = require('pg');
 
-const app      = express();
-const PORT     = process.env.PORT           || 3000;
-const DB_FILE  = path.join(__dirname, 'confessions.json');
+const app    = express();
+const PORT   = process.env.PORT || 3000;
 const ADMIN_PW = process.env.ADMIN_PASSWORD;
 
-let adminToken = null;
-let lastConfessionAt = 0;
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false },
+});
+
+async function initDb() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS confessions (
+      id           SERIAL  PRIMARY KEY,
+      text         TEXT    NOT NULL,
+      submitted_at INTEGER NOT NULL,
+      approved     BOOLEAN DEFAULT FALSE
+    );
+    CREATE TABLE IF NOT EXISTS emails (
+      id           SERIAL  PRIMARY KEY,
+      email        TEXT    UNIQUE NOT NULL,
+      submitted_at INTEGER NOT NULL
+    );
+  `);
+}
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-function load() {
-  try { return JSON.parse(fs.readFileSync(DB_FILE, 'utf8')); }
-  catch { return { nextId: 1, rows: [] }; }
-}
-
-function save(data) {
-  fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2));
+// ── Admin auth ──────────────────────────────────────────────────────────────
+// Token is derived from the password so any serverless instance can validate it
+// without needing shared in-memory state.
+function adminToken() {
+  return crypto.createHmac('sha256', ADMIN_PW || '').update('admin-session').digest('hex');
 }
 
 function getCookie(req, name) {
@@ -31,25 +46,11 @@ function getCookie(req, name) {
 }
 
 function adminAuth(req, res, next) {
-  if (adminToken && getCookie(req, 'admin_token') === adminToken) return next();
+  if (ADMIN_PW && getCookie(req, 'admin_token') === adminToken()) return next();
   res.status(401).json({ error: 'Unauthorized' });
 }
 
-// Public routes
-app.post('/api/email', (req, res) => {
-  const email = (req.body.email || '').trim().toLowerCase();
-  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    return res.status(400).json({ error: 'Invalid email' });
-  }
-  const data = load();
-  if (!data.emails) data.emails = [];
-  if (!data.emails.some(e => e.email === email)) {
-    data.emails.push({ email, submitted_at: Math.floor(Date.now() / 1000) });
-    save(data);
-  }
-  res.json({ ok: true });
-});
-
+// ── Public routes ────────────────────────────────────────────────────────────
 app.get('/api/whoami', (req, res) => {
   const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket.remoteAddress;
   res.json({ ip });
@@ -59,100 +60,136 @@ app.get('/wall', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'wall.html'));
 });
 
-app.post('/api/confession', (req, res) => {
-  const now = Date.now();
-  if (now - lastConfessionAt < 5000) {
-    return res.status(429).json({ error: 'Too many confessions. Please wait a moment.' });
-  }
+app.post('/api/confession', async (req, res) => {
   const text = (req.body.text || '').trim();
   if (!text || text.length > 1000) {
     return res.status(400).json({ error: 'Invalid confession' });
   }
-  lastConfessionAt = now;
-  const data = load();
-  data.rows.push({ id: data.nextId++, text, submitted_at: Math.floor(now / 1000), approved: false });
-  save(data);
-  res.json({ ok: true });
+  const now = Math.floor(Date.now() / 1000);
+  try {
+    // Global rate limit: reject if another confession came in within 5 seconds
+    const { rows } = await pool.query(
+      'SELECT submitted_at FROM confessions ORDER BY submitted_at DESC LIMIT 1'
+    );
+    if (rows.length && now - rows[0].submitted_at < 5) {
+      return res.status(429).json({ error: 'Too many confessions. Please wait a moment.' });
+    }
+    await pool.query(
+      'INSERT INTO confessions (text, submitted_at, approved) VALUES ($1, $2, FALSE)',
+      [text, now]
+    );
+    res.json({ ok: true });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Server error' });
+  }
 });
 
-app.get('/api/confessions', (req, res) => {
-  const rows = load().rows
-    .filter(r => r.approved)
-    .sort((a, b) => b.submitted_at - a.submitted_at);
-  res.json(rows);
+app.get('/api/confessions', async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      'SELECT id, text, submitted_at FROM confessions WHERE approved = TRUE ORDER BY submitted_at DESC'
+    );
+    res.json(rows);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Server error' });
+  }
 });
 
-// Admin page
+app.post('/api/email', async (req, res) => {
+  const email = (req.body.email || '').trim().toLowerCase();
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return res.status(400).json({ error: 'Invalid email' });
+  }
+  try {
+    await pool.query(
+      'INSERT INTO emails (email, submitted_at) VALUES ($1, $2) ON CONFLICT (email) DO NOTHING',
+      [email, Math.floor(Date.now() / 1000)]
+    );
+    res.json({ ok: true });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ── Admin page ───────────────────────────────────────────────────────────────
 app.get('/admin', (req, res) => {
   res.sendFile(path.join(__dirname, 'admin.html'));
 });
 
-// Admin auth
 app.post('/api/admin/login', (req, res) => {
-  if ((req.body.password || '') === ADMIN_PW) {
-    adminToken = crypto.randomBytes(32).toString('hex');
-    res.setHeader('Set-Cookie', `admin_token=${adminToken}; HttpOnly; Path=/; SameSite=Strict`);
-    res.json({ ok: true });
-  } else {
-    res.status(401).json({ error: 'Wrong password' });
+  if (!ADMIN_PW || (req.body.password || '') !== ADMIN_PW) {
+    return res.status(401).json({ error: 'Wrong password' });
   }
+  res.setHeader('Set-Cookie', `admin_token=${adminToken()}; HttpOnly; Path=/; SameSite=Strict`);
+  res.json({ ok: true });
 });
 
 app.post('/api/admin/logout', (req, res) => {
-  adminToken = null;
   res.setHeader('Set-Cookie', 'admin_token=; HttpOnly; Path=/; Max-Age=0');
   res.json({ ok: true });
 });
 
-// Admin confession management
-app.get('/api/admin/confessions', adminAuth, (req, res) => {
-  res.json(load().rows.sort((a, b) => b.submitted_at - a.submitted_at));
+app.get('/api/admin/confessions', adminAuth, async (req, res) => {
+  const { rows } = await pool.query(
+    'SELECT id, text, submitted_at, approved FROM confessions ORDER BY submitted_at DESC'
+  );
+  res.json(rows);
 });
 
-app.post('/api/admin/approve/:id', adminAuth, (req, res) => {
-  const data = load();
-  const row  = data.rows.find(r => r.id === parseInt(req.params.id));
-  if (!row) return res.status(404).json({ error: 'Not found' });
-  row.approved = true;
-  save(data);
+app.post('/api/admin/approve/:id', adminAuth, async (req, res) => {
+  const { rowCount } = await pool.query(
+    'UPDATE confessions SET approved = TRUE WHERE id = $1', [parseInt(req.params.id)]
+  );
+  if (!rowCount) return res.status(404).json({ error: 'Not found' });
   res.json({ ok: true });
 });
 
-app.post('/api/admin/unapprove/:id', adminAuth, (req, res) => {
-  const data = load();
-  const row  = data.rows.find(r => r.id === parseInt(req.params.id));
-  if (!row) return res.status(404).json({ error: 'Not found' });
-  row.approved = false;
-  save(data);
+app.post('/api/admin/unapprove/:id', adminAuth, async (req, res) => {
+  const { rowCount } = await pool.query(
+    'UPDATE confessions SET approved = FALSE WHERE id = $1', [parseInt(req.params.id)]
+  );
+  if (!rowCount) return res.status(404).json({ error: 'Not found' });
   res.json({ ok: true });
 });
 
-app.delete('/api/admin/confession/:id', adminAuth, (req, res) => {
-  const data = load();
-  const idx  = data.rows.findIndex(r => r.id === parseInt(req.params.id));
-  if (idx === -1) return res.status(404).json({ error: 'Not found' });
-  data.rows.splice(idx, 1);
-  save(data);
+app.delete('/api/admin/confession/:id', adminAuth, async (req, res) => {
+  const { rowCount } = await pool.query(
+    'DELETE FROM confessions WHERE id = $1', [parseInt(req.params.id)]
+  );
+  if (!rowCount) return res.status(404).json({ error: 'Not found' });
   res.json({ ok: true });
 });
 
-app.get('/api/admin/download', adminAuth, (req, res) => {
-  res.download(DB_FILE, 'confessions.json');
+app.get('/api/admin/download', adminAuth, async (req, res) => {
+  const confessions = await pool.query('SELECT * FROM confessions ORDER BY id');
+  const emails      = await pool.query('SELECT * FROM emails ORDER BY id');
+  res.setHeader('Content-Disposition', 'attachment; filename="confessions.json"');
+  res.json({ confessions: confessions.rows, emails: emails.rows });
 });
 
-app.get('/api/admin/emails', adminAuth, (req, res) => {
-  const emails = (load().emails || []);
-  const csv = ['email,submitted_at', ...emails.map(e => `${e.email},${e.submitted_at}`)].join('\n');
+app.get('/api/admin/emails', adminAuth, async (req, res) => {
+  const { rows } = await pool.query('SELECT email, submitted_at FROM emails ORDER BY id');
+  const csv = ['email,submitted_at', ...rows.map(e => `${e.email},${e.submitted_at}`)].join('\n');
   res.setHeader('Content-Type', 'text/csv');
   res.setHeader('Content-Disposition', 'attachment; filename="emails.csv"');
   res.send(csv);
 });
 
 if (!ADMIN_PW) {
-  console.error('ERROR: ADMIN_PASSWORD env var is not set. Admin login will not work.');
+  console.error('WARNING: ADMIN_PASSWORD env var is not set.');
 }
 
-app.listen(PORT, () => {
-  console.log(`Running on http://localhost:${PORT}`);
-  console.log(`Admin panel: http://localhost:${PORT}/admin`);
-});
+// Local dev: listen directly. Vercel imports this file and uses module.exports.
+if (require.main === module) {
+  initDb()
+    .then(() => app.listen(PORT, () => {
+      console.log(`Running on http://localhost:${PORT}`);
+      console.log(`Admin panel: http://localhost:${PORT}/admin`);
+    }))
+    .catch(err => { console.error('DB init failed:', err); process.exit(1); });
+}
+
+module.exports = app;
