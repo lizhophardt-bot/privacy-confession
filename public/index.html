@@ -471,6 +471,7 @@
           emailMsg.textContent = '> voucher request received. check your inbox soon.';
           emailInput.disabled = true;
           emailBtn.disabled   = true;
+          setTimeout(resetToForm, 2500);
         } else {
           emailMsg.className = 'err';
           emailMsg.textContent = '! invalid email address.';
@@ -485,8 +486,24 @@
 
     emailInput.addEventListener('keydown', e => { if (e.key === 'Enter') emailBtn.click(); });
 
+    function resetToForm() {
+      textarea.value = '';
+      counter.textContent = '0';
+      btn.disabled = false;
+      emailInput.value = '';
+      emailInput.disabled = false;
+      emailBtn.disabled = false;
+      emailMsg.textContent = '';
+      emailMsg.className = '';
+      document.getElementById('email-signup').style.opacity = '0';
+      document.getElementById('email-signup').style.display = '';
+      document.getElementById('confirm-cta').style.opacity = '0';
+      document.getElementById('confirm-view').style.display = 'none';
+      document.getElementById('form-view').style.display = 'block';
+    }
+
     document.getElementById('no-vpn-btn').addEventListener('click', () => {
-      document.getElementById('email-signup').style.display = 'none';
+      resetToForm();
     });
   </script>
 </body>
