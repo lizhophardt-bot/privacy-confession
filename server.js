@@ -6,7 +6,9 @@ const crypto  = require('crypto');
 
 const app      = express();
 const PORT     = process.env.PORT           || 3000;
-const DB_FILE  = path.join(__dirname, 'confessions.json');
+const DB_FILE  = process.env.DATA_DIR
+  ? path.join(process.env.DATA_DIR, 'confessions.json')
+  : path.join(__dirname, 'confessions.json');
 const ADMIN_PW = process.env.ADMIN_PASSWORD;
 
 let adminToken = null;
