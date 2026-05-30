@@ -275,12 +275,13 @@
 
       <div id="email-signup">
         <div class="email-label">get a free secret code</div>
-        <p class="email-sub">Try Gnosis VPN beta on your own device — enter your email and we'll send you a code.</p>
+        <p class="email-sub">Try Gnosis VPN Beta on your own device. Enter your email and we'll send you a code. We won't use your email address for anything else.</p>
         <div class="email-row">
           <input type="email" id="email-input" placeholder="your@email.com" autocomplete="email">
           <button id="email-btn">[ send ]</button>
         </div>
         <p id="email-msg"></p>
+        <button id="no-vpn-btn" style="margin-top:1.2rem; border-color:#003b14; color:#005c1f; font-size:0.72rem;">[ I don't want to test Gnosis VPN Beta ]</button>
       </div>
     </div>
 
@@ -483,6 +484,10 @@
     });
 
     emailInput.addEventListener('keydown', e => { if (e.key === 'Enter') emailBtn.click(); });
+
+    document.getElementById('no-vpn-btn').addEventListener('click', () => {
+      document.getElementById('email-signup').style.display = 'none';
+    });
   </script>
 </body>
 </html>
