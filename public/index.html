@@ -338,63 +338,6 @@
       counter.textContent = textarea.value.length;
     });
 
-    function detectGPU() {
-      try {
-        const c = document.createElement('canvas');
-        const gl = c.getContext('webgl') || c.getContext('experimental-webgl');
-        if (!gl) return 'unavailable';
-        const ext = gl.getExtension('WEBGL_debug_renderer_info');
-        return ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : 'unknown';
-      } catch { return 'unavailable'; }
-    }
-
-    function detectFonts() {
-      const candidates = [
-        'Arial','Helvetica','Times New Roman','Courier New','Georgia',
-        'Palatino','Verdana','Tahoma','Impact','Trebuchet MS',
-        'Comic Sans MS','Gill Sans','Calibri','Cambria','Century Gothic',
-        'Futura','Monaco','Lucida Console','Optima','Baskerville','Garamond'
-      ];
-      const c = document.createElement('canvas');
-      const ctx = c.getContext('2d');
-      const base = 'monospace';
-      const str  = 'mmmmmmmmmmlli';
-      ctx.font = `72px ${base}`;
-      const baseW = ctx.measureText(str).width;
-      return candidates.filter(f => {
-        ctx.font = `72px '${f}', ${base}`;
-        return ctx.measureText(str).width !== baseW;
-      });
-    }
-
-    async function buildRows(ip) {
-      const fonts   = detectFonts();
-      const fontStr = fonts.length
-        ? fonts.slice(0, 3).join(', ') + (fonts.length > 3 ? ` (+${fonts.length - 3} more)` : '')
-        : 'none detected';
-
-      const rows = [
-        ['IP address',   ip],
-        ['Language',     navigator.language],
-        ['Timezone',     Intl.DateTimeFormat().resolvedOptions().timeZone],
-        ['Screen',       `${screen.width} × ${screen.height}`],
-        ['Color depth',  `${screen.colorDepth}-bit`],
-        ['CPU cores',    String(navigator.hardwareConcurrency || 'unknown')],
-        ['Platform',     navigator.platform],
-        ['GPU',          detectGPU()],
-        ['Fonts',        fontStr],
-      ];
-
-      if (navigator.getBattery) {
-        try {
-          const b = await navigator.getBattery();
-          rows.push(['Battery', Math.round(b.level * 100) + '%' + (b.charging ? ' (charging)' : '')]);
-        } catch {}
-      }
-
-      return rows;
-    }
-
     async function showConfirmView() {
       let ip = 'resolving...';
       try {
@@ -402,31 +345,26 @@
         ip = (await r.json()).ip;
       } catch {}
 
-      const rows  = await buildRows(ip);
       const table = document.getElementById('data-table');
       table.innerHTML = '';
 
-      rows.forEach(([key, val], i) => {
-        const row  = document.createElement('div');
-        row.className = 'data-row';
-        row.style.animationDelay = `${i * 140}ms`;
-        const k = document.createElement('span');
-        k.className = 'data-key';
-        k.textContent = key;
-        const v = document.createElement('span');
-        v.className = 'data-val';
-        v.textContent = val;
-        row.append(k, v);
-        table.appendChild(row);
-      });
+      const row = document.createElement('div');
+      row.className = 'data-row';
+      const k = document.createElement('span');
+      k.className = 'data-key';
+      k.textContent = 'IP address';
+      const v = document.createElement('span');
+      v.className = 'data-val';
+      v.textContent = ip;
+      row.append(k, v);
+      table.appendChild(row);
 
-      const delay = rows.length * 140 + 400;
       setTimeout(() => {
         document.getElementById('confirm-cta').style.opacity = '1';
-      }, delay);
+      }, 400);
       setTimeout(() => {
         document.getElementById('email-signup').style.opacity = '1';
-      }, delay + 700);
+      }, 1100);
     }
 
     btn.addEventListener('click', async () => {
